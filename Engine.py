@@ -39,6 +39,7 @@ ppl = {}
 
 def main():
     #1. ask user for a clear facial photo to insert, and name of person in photo
+    '''
     flag = " "
     while flag:
         flag = input("Enter 1 enter a user to the DB. Enter 2 to quit")
@@ -47,6 +48,9 @@ def main():
         else:
             break
 
+    '''
+    autoAdd()
+
     #2. create all tensors from photos in InsertPhotos and put them in tensors folder
     createAllTensorsInInsertPhotos()
     # Insert all tensors from tensors folder into the DB. Insert norm of the tensor. Insert name of person. Insert the photo.
@@ -54,6 +58,8 @@ def main():
     #3. ask user for an unclear facial photo to search
     #4. create tensor from this photo. Query DB for entries
     #5. Query DB for all entries that have norm distance < 1.0 and return everything on them
+
+
 
 def convertToBinaryData(filename):
     # Convert digital data to binary format
@@ -135,7 +141,7 @@ def createAllTensorsInInsertPhotos():
     x = 0
     tensorPath = ""
     for i in embeddings:
-        tensorPath = "C:\\Users\\pecko\\PycharmProjects\\pythonProject1\\tensors2\\tensor_" + str(names[x]) + str(x) + ".pt"
+        tensorPath = "C:\\Users\\pecko\\PycharmProjects\\pythonProject1\\tensors\\tensor_" + str(names[x])+str(x) + ".pt"
         torch.save(i, tensorPath)
         ppl[names[x]].tensorOfClearPhoto = tensorPath
         ppl[names[x]].clearPhotoNorm = LA.vector_norm(i, ord=2).item()
@@ -159,5 +165,24 @@ def getInfoFromUser():
     os.rename("C:\\Users\\pecko\\Pictures\\Camera Roll\\"+photoName, path+'\\1.jpg')
 
     ppl[personName] = MyPerson(ssn, personName, path+'\\1.jpg')
+
+def autoAdd():
+    parent_dir = "C:\\Users\\pecko\\PycharmProjects\\pythonProject1\\InsertPhotos"
+    info.imageFolder = parent_dir
+
+    for i in range(1,14):
+        ssn = i
+        personName = "matthew" + str(i)
+        photoName = str(i) + ".jpg"
+
+        directory = personName
+
+        path = os.path.join(parent_dir, directory)
+        os.mkdir(path)
+
+        #C:\\Users\\pecko\\Pictures\\Camera Roll\\1.jpg
+        os.rename("C:\\Users\\pecko\\Pictures\\Camera Roll\\"+photoName, path+'\\1.jpg')
+
+        ppl[personName] = MyPerson(ssn, personName, path+'\\1.jpg')
 
 if __name__ == "__main__": main()

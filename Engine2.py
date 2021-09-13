@@ -180,10 +180,4 @@ def printDistanceTable():
     pd.set_option('display.width', 150)
     print(pd.DataFrame(dists, columns=names, index=names))
 
-    dists = [[LA.vector_norm(e1 - e2, ord=2).item() for e2 in t] for e1 in t]
-    pd.set_option('display.max_rows', 500)
-    pd.set_option('display.max_columns', 500)
-    pd.set_option('display.width', 150)
-    print(pd.DataFrame(dists, columns=names, index=names))
-
 if __name__ == "__main__": main()
