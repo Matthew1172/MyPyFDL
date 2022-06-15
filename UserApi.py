@@ -1,11 +1,21 @@
 import os
 
+class MyPhoto():
+    def __init__(self, photo, tensor, norm):
+        self.photo = photo
+        self.tensor = tensor
+        self.norm = norm
+
 class MyPerson():
     ssn = ""
     name = ""
     person_path = ""
+    photos = None
 
-    def __init__(self, ssn, name, person_path):
+    def __init__(self, ssn, name, person_path, photos=None):
+        if photos is None:
+            photos = []
+        self.photos = photos
         self.ssn = ssn
         self.name = name
         self.person_path = person_path

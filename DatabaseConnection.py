@@ -11,6 +11,7 @@ class DatabaseConnection():
                                                  database=database,
                                                  user=user,
                                                  password=password)
+            self.connection.autocommit = False
 
         except mysql.connector.Error as err:
             if err.errno == errorcode.ER_ACCESS_DENIED_ERROR:
@@ -32,7 +33,7 @@ class DatabaseConnection():
     def getAllPeople(self):
         try:
             cursor = self.connection.cursor()
-            sql_insert_blob_query = """ SELECT * FROM faces"""
+            sql_insert_blob_query = """ SELECT * FROM person_info"""
 
             cursor.execute(sql_insert_blob_query)
             result = cursor.fetchall()
@@ -45,13 +46,17 @@ class DatabaseConnection():
             print("Something went wrong when fetching all people from the database.")
 
     '''TODO: change this to add all of the pictures in the person_path into the one-to-many SQL table of person photos'''
-    def insertPerson(self, ssn, name, clearPhotoBinary, clearPhotoTensorBinary):
+    def insertPerson(self, ssn, name, photo_bin, tensor_bin, norm):
         try:
             cursor = self.connection.cursor()
-            sql_insert_blob_query = """ INSERT INTO faces
-                              (ssn, name, clearPhoto, tensorOfClearPhoto) VALUES (%s,%s,%s,%s)"""
+            sql_insert_blob_query = """ INSERT INTO person_info
+                              (ssn, name) VALUES (%s,%s)"""
+            insert_blob_tuple = (ssn, name)
+            result = cursor.execute(sql_insert_blob_query, insert_blob_tuple)
 
-            insert_blob_tuple = (ssn, name, clearPhotoBinary, clearPhotoTensorBinary)
+            sql_insert_blob_query = """ INSERT INTO person_photos
+                              (ssn, photo, tensor, norm) VALUES (%s,%s,%s,%s)"""
+            insert_blob_tuple = (ssn, photo_bin, tensor_bin, norm)
             result = cursor.execute(sql_insert_blob_query, insert_blob_tuple)
 
             self.connection.commit()

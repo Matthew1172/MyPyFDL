@@ -1,13 +1,22 @@
 '''TODO: create a new SQL table that saves all the photos and tensors of a given person. SSN is unique key'''
 
 '''
-CREATE TABLE `facialdatabase1`.`faces` (
+CREATE TABLE `facialdatabase1`.`person_info` (
   `ssn` VARCHAR(9) NOT NULL,
   `name` VARCHAR(50) NOT NULL,
-  `clearPhoto` LONGBLOB NOT NULL,
-  `tensorOfClearPhoto` LONGBLOB NOT NULL,
-  `ClearPhotoNorm` DECIMAL(16,16) NOT NULL,
   PRIMARY KEY (`ssn`));
+
+CREATE TABLE `facialdatabase1`.`person_photos` (
+  `ssn` VARCHAR(9) NOT NULL,
+  `photo` LONGBLOB NULL,
+  `tensor` LONGBLOB NULL,
+  `norm` DECIMAL(16,16) NOT NULL,
+  PRIMARY KEY (`ssn`),
+  CONSTRAINT `ssn`
+    FOREIGN KEY (`ssn`)
+    REFERENCES `facialdatabase1`.`person_info` (`ssn`)
+    ON DELETE NO ACTION
+    ON UPDATE NO ACTION);
 '''
 
 import UserApi

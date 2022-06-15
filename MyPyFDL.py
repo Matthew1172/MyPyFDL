@@ -98,6 +98,8 @@ class FDL(DatabaseConnection):
             tensor_path = os.path.join(tensor_parent_path, tensor_file_name)
             torch.save(x, tensor_path)
 
+
+
     def printDistanceTable(self, unclear_image_class_dir):
         embeddings = []
         names = []
