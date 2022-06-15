@@ -1,21 +1,39 @@
 import os
 import torch
+from torch import linalg as LA
 from torch.utils.data import DataLoader
 from torchvision import datasets
 from facenet_pytorch import MTCNN, InceptionResnetV1
 import pandas as pd
 
 from DatabaseConnection import DatabaseConnection
+from common import *
 
+
+class MyPhoto():
+    def __init__(self, photo, tensor=None):
+        self.photo = photo
+        self.tensor = tensor
+
+class MyPerson():
+    ssn = ""
+    name = ""
+    photos = None
+
+    def __init__(self, ssn, name, photos=None):
+        if photos is None:
+            photos = []
+        self.photos = photos
+        self.ssn = ssn
+        self.name = name
 
 class FDL(DatabaseConnection):
-    ppl = {}
     device = None
     tensor_dir = ""
+    ppl = {}
 
-    def __init__(self, ppl, device, database_photos_dir="C:\\Users\\pecko\\PycharmProjects\\MyPyFDL\\DatabasePhotos"):
+    def __init__(self, device, database_photos_dir="C:\\Users\\pecko\\PycharmProjects\\MyPyFDL\\DatabasePhotos"):
         super().__init__()
-        self.ppl = ppl
         self.device = device
 
         try:
@@ -24,41 +42,6 @@ class FDL(DatabaseConnection):
             print("Error making directory for photos from the database.\n{}".format(database_photos_dir))
         finally:
             self.database_photos_dir = database_photos_dir
-
-    def convert_data(self, data, file_name):
-        with open(file_name, 'wb') as file:
-            file.write(data)
-
-    def convertToBinaryData(self, filename):
-        # Convert digital data to binary format
-        with open(filename, 'rb') as file:
-            binaryData = file.read()
-        return binaryData
-
-    def createDirectoriesForResults(self, database_results):
-        for ssn, name, clearPhoto, tensorOfClearPhoto in database_results:
-            path = os.path.join(self.database_photos_dir, name)
-            try:
-                os.mkdir(path)
-            except:
-                print("Error trying to create a directory for a person in the database.\n{}".format(path))
-            self.convert_data(tensorOfClearPhoto, os.path.join(path, "0.pt"))
-            self.convert_data(clearPhoto, os.path.join(path, "0.jpg"))
-
-    def createDirectoriesFromDatabase(self):
-        result = self.getAllPeople()
-        self.createDirectoriesForResults(result)
-
-    def insertAllPeopleIntoDatabase(self):
-        for k, v in self.ppl.items():
-
-            '''TODO: create a loop to go through all of the photos in the person_path and add them to the one-to-many table
-            make these arrays!
-            '''
-            clearPhotoBinary = self.convertToBinaryData(os.path.join(v.person_path, "0.jpg"))
-            clearPhotoTensorBinary = self.convertToBinaryData(os.path.join(v.person_path, "0.pt"))
-
-            self.insertPerson(v.ssn, v.name, clearPhotoBinary, clearPhotoTensorBinary)
 
     def createAllTensors(self, photo_class_dir):
         workers = 0 if os.name == 'nt' else 4
@@ -91,15 +74,68 @@ class FDL(DatabaseConnection):
         aligned = torch.stack(aligned).to(self.device)
         embeddings = resnet(aligned).detach().cpu()
 
-        tensorPath = ""
+        seen = []
+        counter = 0
         for i, x in enumerate(embeddings):
+            if names[i] in seen:
+                counter += 1
+            else:
+                counter = 0
+                seen.append(names[i])
+
+            name_ssn = names[i].split('$')
+            name = name_ssn[0]
+            ssn = name_ssn[1]
+
             tensor_parent_path = os.path.join(photo_class_dir, str(names[i]))
-            tensor_file_name = "0.pt"
-            tensor_path = os.path.join(tensor_parent_path, tensor_file_name)
+            tensor_path = os.path.join(tensor_parent_path, str(counter)+".pt")
             torch.save(x, tensor_path)
 
+            photo_bin = convertToBinaryData(os.path.join(tensor_parent_path, str(counter)+".jpg"))
+            tensor_bin = convertToBinaryData(tensor_path)
 
+            p = MyPhoto(photo_bin, tensor_bin)
+            if names[i] in self.ppl:
+                self.ppl[names[i]].photos.append(p)
+            else:
+                self.ppl[names[i]] = MyPerson(ssn, name, [p])
 
+    def insertPeople(self):
+        if len(self.ppl) < 1:
+            print("Nothing to insert.")
+            return
+
+        for k, v in self.ppl.items():
+            if not self.checkPerson(v.ssn):
+                self.insertPerson(v.ssn, v.name)
+            for p in v.photos:
+                self.insertPhoto(v.ssn, p)
+
+    def createDirectoriesForResults(self, database_results):
+        counter = 0
+        seen = []
+        for ssn, name, tensor in database_results:
+            code = getPersonClass(name, ssn)
+            path = os.path.join(self.database_photos_dir, code)
+
+            if code in seen:
+                counter += 1
+            else:
+                try:
+                    os.mkdir(path)
+                except:
+                    print("Error trying to create a directory for a person in the database.\n{}".format(path))
+                counter = 0
+                seen.append(code)
+
+            convert_data(tensor, os.path.join(path, str(counter)+".pt"))
+            #convert_data(clearPhoto, os.path.join(path, "0.jpg"))
+
+    def createDirectoriesFromDatabase(self):
+        result = self.getAllPeople()
+        self.createDirectoriesForResults(result)
+
+    '''This will only print the distances for the first image of every person.'''
     def printDistanceTable(self, unclear_image_class_dir):
         embeddings = []
         names = []
@@ -116,7 +152,7 @@ class FDL(DatabaseConnection):
         except:
             print("Error trying to get directories from database photos directory.")
 
-        unclear_image_path = os.path.join(os.path.join(unclear_image_class_dir, "Unclear"), "0.pt")
+        unclear_image_path = os.path.join(os.path.join(unclear_image_class_dir, getPersonClass("Unclear", 0)), "0.pt")
         names.append("UnknownFace")
         embeddings.append(torch.load(unclear_image_path).tolist())
 
@@ -127,3 +163,5 @@ class FDL(DatabaseConnection):
         pd.set_option('display.max_columns', 500)
         pd.set_option('display.width', 150)
         print(pd.DataFrame(dists, columns=names, index=names))
+
+    '''TODO: Add K-nearest neighbors algorithm to find who the unclear image should be classified as'''
