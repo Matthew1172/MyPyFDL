@@ -11,6 +11,7 @@ class DatabaseConnection():
                                                  database=database,
                                                  user=user,
                                                  password=password)
+            self.connection.autocommit = False
 
         except mysql.connector.Error as err:
             if err.errno == errorcode.ER_ACCESS_DENIED_ERROR:
@@ -32,9 +33,13 @@ class DatabaseConnection():
     def getAllPeople(self):
         try:
             cursor = self.connection.cursor()
-            sql_insert_blob_query = """ SELECT * FROM faces"""
+            sql = """
+            SELECT person_info.ssn, person_info.name, person_photos.tensor 
+            FROM person_info 
+            JOIN person_photos 
+            ON person_info.ssn = person_photos.ssn"""
 
-            cursor.execute(sql_insert_blob_query)
+            cursor.execute(sql)
             result = cursor.fetchall()
 
             self.connection.commit()
@@ -42,19 +47,48 @@ class DatabaseConnection():
 
             return result
         except:
-            print("Something went wrong when fetching all people from the database.")
+            print("Something went wrong while fetching all people from the database.")
 
-    '''TODO: change this to add all of the pictures in the person_path into the one-to-many SQL table of person photos'''
-    def insertPerson(self, ssn, name, clearPhotoBinary, clearPhotoTensorBinary):
+    def checkPerson(self, ssn):
         try:
             cursor = self.connection.cursor()
-            sql_insert_blob_query = """ INSERT INTO faces
-                              (ssn, name, clearPhoto, tensorOfClearPhoto) VALUES (%s,%s,%s,%s)"""
+            sql = """ SELECT * FROM person_info WHERE ssn = %s"""
 
-            insert_blob_tuple = (ssn, name, clearPhotoBinary, clearPhotoTensorBinary)
+            sql_search = (int(ssn), )
+            cursor.execute(sql, sql_search)
+            result = cursor.fetchall()
+
+            self.connection.commit()
+            cursor.close()
+
+            if len(result) > 0: return True
+            return False
+        except:
+            print("Something went wrong while fetching a person from the database.\nSSN: {}.".format(ssn))
+
+    def insertPerson(self, ssn, name):
+        try:
+            cursor = self.connection.cursor()
+            sql_insert_blob_query = """ INSERT INTO person_info
+                              (ssn, name) VALUES (%s,%s)"""
+            insert_blob_tuple = (ssn, name)
             result = cursor.execute(sql_insert_blob_query, insert_blob_tuple)
 
             self.connection.commit()
             cursor.close()
         except:
-            print("Something went wrong when inserting a person row into the database.")
+            print("Something went wrong when inserting a person's info into the database.\nSSN: {}\nNAME: {}".format(ssn, name))
+
+    def insertPhoto(self, ssn, photo):
+        try:
+            cursor = self.connection.cursor()
+
+            sql_insert_blob_query = """ INSERT INTO person_photos
+                              (ssn, photo, tensor) VALUES (%s,%s,%s)"""
+            insert_blob_tuple = (ssn, photo.photo, photo.tensor)
+            result = cursor.execute(sql_insert_blob_query, insert_blob_tuple)
+
+            self.connection.commit()
+            cursor.close()
+        except:
+            print("Something went wrong when inserting a person's photo into the database.\nSSN: {}".format(ssn))
