@@ -55,6 +55,8 @@ def main():
     #6. Print the distance table
     FDL.printDistanceTable(unclear_dir)
 
+    FDL.print_knn(unclear_dir)
+
     #remove temp directory
     remDir(db_parent_dir)
     remDir(unclear_dir)

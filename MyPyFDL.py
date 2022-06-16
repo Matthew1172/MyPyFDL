@@ -1,3 +1,4 @@
+import math
 import os
 import torch
 from torch import linalg as LA
@@ -9,6 +10,16 @@ import pandas as pd
 from DatabaseConnection import DatabaseConnection
 from common import *
 
+class MyDataPoint():
+    def __init__(self, _class, dist):
+        self._class = _class
+        self.dist = dist
+
+    def __lt__(self, other):
+        return self.dist < other
+
+    def __gt__(self, other):
+        return self.dist > other
 
 class MyPhoto():
     def __init__(self, photo, tensor=None):
@@ -164,4 +175,64 @@ class FDL(DatabaseConnection):
         pd.set_option('display.width', 150)
         print(pd.DataFrame(dists, columns=names, index=names))
 
-    '''TODO: Add K-nearest neighbors algorithm to find who the unclear image should be classified as'''
+    def print_knn(self, unclear_image_class_dir):
+        unclear_image_path = os.path.join(os.path.join(unclear_image_class_dir, getPersonClass("Unclear", 0)), "0.pt")
+        uc = torch.load(unclear_image_path)
+        points, classes = self.get_points(uc)
+        knn_result = self.knn(points, classes)
+        print("I think the person you're looking for is: {}".format(knn_result))
+
+    def get_points(self, uc):
+        points = []
+        classes = {}
+        for d in next(os.walk(self.database_photos_dir))[1]:
+            path = os.path.join(self.database_photos_dir, d)
+            for f in next(os.walk(path))[2]:
+                tensor_path = os.path.join(path, f)
+                t = torch.load(tensor_path)
+
+                dist = (uc - t).norm().item()
+
+                points.append(MyDataPoint(d, dist))
+                classes[d] = 1
+        return points, classes
+
+    def knn(self, points, classes):
+        k = self.choose_k(len(classes))
+        return self.most_common(self.merge_sort(points)[:k])
+
+    def most_common(self, points):
+        ans = {}
+        for dp in points:
+            if dp._class in ans: ans[dp._class] += 1
+            else: ans[dp._class] = 1
+        return max(ans, key=ans.get)
+
+    def choose_k(self, n):
+        MAX = n+100
+        for k in range(math.floor(math.sqrt(n)), MAX):
+            if k%2 != 0 and n%k != 0:
+                return k
+        print("Could not find a value for K. Using 3.")
+        return 3
+
+    def merge_sort(self, a):
+        if len(a) < 2: return a
+        mid = len(a)//2
+        return self.merge(
+            self.merge_sort(a[:mid]),
+            self.merge_sort(a[mid:])
+        )
+
+    def merge(self, a, b):
+        def merge_iter(a, b, ans):
+            if len(a) < 1 and len(b) < 1: return ans
+            if len(a) < 1: return ans + b
+            if len(b) < 1: return ans + a
+            if a[0] < b[0]:
+                ans.append(a[0])
+                return merge_iter(a[1:], b, ans)
+            else:
+                ans.append(b[0])
+                return merge_iter(a, b[1:], ans)
+        return merge_iter(a, b, [])
