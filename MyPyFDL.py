@@ -1,7 +1,6 @@
 import math
 import os
 import torch
-from torch import linalg as LA
 from torch.utils.data import DataLoader
 from torchvision import datasets
 from facenet_pytorch import MTCNN, InceptionResnetV1
@@ -140,7 +139,6 @@ class FDL(DatabaseConnection):
                 seen.append(code)
 
             convert_data(tensor, os.path.join(path, str(counter)+".pt"))
-            #convert_data(clearPhoto, os.path.join(path, "0.jpg"))
 
     def createDirectoriesFromDatabase(self):
         result = self.getAllPeople()
@@ -150,25 +148,19 @@ class FDL(DatabaseConnection):
     def printDistanceTable(self, unclear_image_class_dir):
         embeddings = []
         names = []
-        x = 0
         try:
             for d in next(os.walk(self.database_photos_dir))[1]:
-                '''TODO: add a loop here to get all the photos of the person from the database, not just one.'''
                 tensor_file = os.path.join(d, "0.pt")
                 tensor_path = os.path.join(self.database_photos_dir, tensor_file)
 
-                '''TODO: turn this into a 3D array of shape (<number-of-people>, <number-of-photos>, <tensor>)'''
                 embeddings.append(torch.load(tensor_path).tolist())
                 names.append(d)
         except:
             print("Error trying to get directories from database photos directory.")
-
         unclear_image_path = os.path.join(os.path.join(unclear_image_class_dir, getPersonClass("Unclear", 0)), "0.pt")
         names.append("UnknownFace")
         embeddings.append(torch.load(unclear_image_path).tolist())
-
         t = torch.tensor(embeddings)
-
         dists = [[(e1 - e2).norm().item() for e2 in t] for e1 in t]
         pd.set_option('display.max_rows', 500)
         pd.set_option('display.max_columns', 500)
@@ -190,16 +182,14 @@ class FDL(DatabaseConnection):
             for f in next(os.walk(path))[2]:
                 tensor_path = os.path.join(path, f)
                 t = torch.load(tensor_path)
-
                 dist = (uc - t).norm().item()
-
                 points.append(MyDataPoint(d, dist))
                 classes[d] = 1
         return points, classes
 
     def knn(self, points, classes):
         k = self.choose_k(len(classes))
-        return self.most_common(self.merge_sort(points)[:k])
+        return self.most_common(merge_sort(points)[:k])
 
     def most_common(self, points):
         ans = {}
@@ -215,24 +205,3 @@ class FDL(DatabaseConnection):
                 return k
         print("Could not find a value for K. Using 3.")
         return 3
-
-    def merge_sort(self, a):
-        if len(a) < 2: return a
-        mid = len(a)//2
-        return self.merge(
-            self.merge_sort(a[:mid]),
-            self.merge_sort(a[mid:])
-        )
-
-    def merge(self, a, b):
-        def merge_iter(a, b, ans):
-            if len(a) < 1 and len(b) < 1: return ans
-            if len(a) < 1: return ans + b
-            if len(b) < 1: return ans + a
-            if a[0] < b[0]:
-                ans.append(a[0])
-                return merge_iter(a[1:], b, ans)
-            else:
-                ans.append(b[0])
-                return merge_iter(a, b[1:], ans)
-        return merge_iter(a, b, [])

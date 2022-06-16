@@ -1,5 +1,3 @@
-'''TODO: create a new SQL table that saves all the photos and tensors of a given person. SSN is unique key'''
-
 '''
 CREATE TABLE `facialdatabase1`.`person_info` (
   `ssn` VARCHAR(9) NOT NULL,
